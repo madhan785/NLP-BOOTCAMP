@@ -1,0 +1,72 @@
+import pandas as pd
+import re
+import nltk
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score
+
+# Download necessary NLTK data
+nltk.download('stopwords')
+nltk.download('punkt')
+
+# Sample dataset
+news_data = {
+    "text": [
+        "Government announces new policies to improve education system.",
+        "Scientists discover a new planet similar to Earth.",
+        "Celebrity caught in a scandal that never happened!",
+        "Aliens have landed on Earth and taken over the White House!",
+        "New medical research finds a cure for common cold.",
+        "Bill Gates says vaccines will control the world population!",
+        "Economy is expected to grow by 5% in the next quarter.",
+        "The secret to weight loss has been discovered overnight."
+    ],
+    "label": ["Real", "Real", "Fake", "Fake", "Real", "Fake", "Real", "Fake"]
+}
+
+# Convert to DataFrame
+df = pd.DataFrame(news_data)
+
+# Text preprocessing
+def preprocess_text(text):
+    text = re.sub(r'\W', ' ', text)  # Remove special characters
+    text = text.lower()  # Convert to lowercase
+    words = word_tokenize(text)  # Tokenization
+    words = [word for word in words if word not in stopwords.words('english')]  # Remove stopwords
+    return ' '.join(words)
+
+df['clean_text'] = df['text'].apply(preprocess_text)
+
+df['label'] = df['label'].map({'Fake': 0, 'Real': 1})
+
+# Feature extraction
+vectorizer = TfidfVectorizer(max_features=5000)
+X = vectorizer.fit_transform(df['clean_text']).toarray()
+y = df['label']
+
+# Train-test split
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Train model
+model = LogisticRegression()
+model.fit(X_train, y_train)
+
+# Model evaluation
+y_pred = model.predict(X_test)
+accuracy = accuracy_score(y_test, y_pred)
+print(f"Model Accuracy: {accuracy * 100:.2f}%")
+
+# Function to predict new input
+def predict_news(news):
+    processed_news = preprocess_text(news)
+    vectorized_news = vectorizer.transform([processed_news]).toarray()
+    prediction = model.predict(vectorized_news)
+    return "Real" if prediction[0] == 1 else "Fake"
+
+# User input for news detection
+news_input = input("Enter a news article: ")
+prediction = predict_news(news_input)
+print(f"Prediction: {prediction}")
