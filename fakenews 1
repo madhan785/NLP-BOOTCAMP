@@ -17,23 +17,28 @@ nltk.download('punkt')
 pd.set_option('display.max_rows', None)
 pd.set_option('display.max_columns', None)
 
-df = pd.read_csv("news.csv")
-print(df.info(), df)
+df = pd.read_csv(r"C:\Users\Super User\Downloads\news (1).csv")
+print(df.info(), df.head())
 
 df.dropna(subset=['text', 'label'], inplace=True)
 df['label'] = df['label'].map({'Fake': 0, 'Real': 1})
 
+stop_words = set(stopwords.words('english'))
+
 def preprocess_text(text):
-    text = re.sub(r'\W', ' ', text.lower())
-    return ' '.join([word for word in word_tokenize(text) if word not in set(stopwords.words('english'))])
+    text = re.sub(r'[^a-zA-Z]', ' ', text.lower())
+    return ' '.join([word for word in word_tokenize(text) if word not in stop_words])
 
 df['clean_text'] = df['text'].apply(preprocess_text)
 
-X = TfidfVectorizer(max_features=5000).fit_transform(df['clean_text']).toarray()
+tfidf_vectorizer = TfidfVectorizer(max_features=5000)
+X = tfidf_vectorizer.fit_transform(df['clean_text']).toarray()
 y = df['label']
+
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
 
 model = LogisticRegression(class_weight='balanced').fit(X_train, y_train)
+
 y_pred = model.predict(X_test)
 conf_matrix = confusion_matrix(y_test, y_pred)
 fake_acc, real_acc = conf_matrix[0, 0] / sum(conf_matrix[0]), conf_matrix[1, 1] / sum(conf_matrix[1])
@@ -48,7 +53,8 @@ plt.title("Distribution of Fake and Real News in the Dataset")
 plt.show()
 
 def classify_news(news_text):
-    vectorized_text = TfidfVectorizer(max_features=5000).fit(df['clean_text']).transform([preprocess_text(news_text)]).toarray()
+    processed_text = preprocess_text(news_text)
+    vectorized_text = tfidf_vectorizer.transform([processed_text]).toarray()
     prediction = model.predict(vectorized_text)[0]
     return ("Real" if prediction == 1 else "Fake"), (real_acc if prediction == 1 else fake_acc)
 
@@ -58,7 +64,7 @@ while True:
         print("\nExiting the program. Goodbye!")
         break
     elif not news.strip():
-        print("\n Please enter a valid news article!")
+        print("\nPlease enter a valid news article!")
         continue
     
     result, accuracy = classify_news(news)
